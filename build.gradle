@@ -1,8 +1,9 @@
 buildscript {
     repositories {
-        mavenCentral()
         google()
+        mavenCentral()
     }
+
     dependencies {
         classpath GRADLE_CLASS_PATH
         classpath PROTOBUF_CLASS_PATH
@@ -16,18 +17,21 @@ apply plugin: 'com.android.application'
 apply plugin: 'com.google.protobuf'
 
 android {
-    compileSdkVersion COMPILE_SDK
-    buildToolsVersion BUILD_TOOLS_VERSION
+    namespace "com.android.launcher3"
+
+    compileSdk Integer.parseInt(COMPILE_SDK.toString())
 
     defaultConfig {
-        minSdkVersion 25
-        targetSdkVersion 28
+        minSdk Integer.parseInt(MIN_SDK.toString())
+        targetSdk Integer.parseInt(TARGET_SDK.toString())
+
         versionCode 1
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
     }
+
     buildTypes {
         debug {
             minifyEnabled false
@@ -35,12 +39,10 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
-    // The flavor dimensions for build variants (e.g. aospWithQuickstep, aospWithoutQuickstep)
-    // See: https://developer.android.com/studio/build/build-variants#flavor-dimensions
     flavorDimensions "app", "recents"
 
     productFlavors {
@@ -58,8 +60,7 @@ android {
 
         withQuickstep {
             dimension "recents"
-
-            minSdkVersion 28
+            minSdk 28
         }
 
         withoutQuickstep {
@@ -67,27 +68,23 @@ android {
         }
     }
 
-    // Disable release builds for now
-    android.variantFilter { variant ->
-        if (variant.buildType.name.endsWith('release')) {
-            variant.setIgnore(true)
-        }
-    }
-
     sourceSets {
         main {
             res.srcDirs = ['res']
             java.srcDirs = ['src', 'src_plugins']
+
             manifest.srcFile 'AndroidManifest-common.xml'
+
             proto {
-                srcDir 'protos/'
-                srcDir 'proto_overrides/'
+                srcDir 'protos'
+                srcDir 'proto_overrides'
             }
         }
 
         androidTest {
             res.srcDirs = ['tests/res']
             java.srcDirs = ['tests/src', 'tests/tapl']
+
             manifest.srcFile "tests/AndroidManifest-common.xml"
         }
 
@@ -110,6 +107,7 @@ android {
         l3go {
             res.srcDirs = ['go/res']
             java.srcDirs = ['go/src']
+
             manifest.srcFile "go/AndroidManifest.xml"
         }
 
@@ -126,20 +124,45 @@ android {
         }
 
         withQuickstep {
-            res.srcDirs = ['quickstep/res', 'quickstep/recents_ui_overrides/res']
-            java.srcDirs = ['quickstep/src', 'quickstep/recents_ui_overrides/src']
+            res.srcDirs = [
+                'quickstep/res',
+                'quickstep/recents_ui_overrides/res'
+            ]
+
+            java.srcDirs = [
+                'quickstep/src',
+                'quickstep/recents_ui_overrides/src'
+            ]
+
             manifest.srcFile "quickstep/AndroidManifest.xml"
+        }
+    }
+}
+
+androidComponents {
+    beforeVariants(selector().all()) { variant ->
+        if (variant.buildType == "release") {
+            variant.enable = false
         }
     }
 }
 
 allprojects {
     repositories {
-        maven { url "../../../prebuilts/sdk/current/androidx/m2repository" }
-        maven { url "../../../prebuilts/fullsdk-darwin/extras/android/m2repository" }
-        maven { url "../../../prebuilts/fullsdk-linux/extras/android/m2repository" }
-        mavenCentral()
+        maven {
+            url = uri("../../../prebuilts/sdk/current/androidx/m2repository")
+        }
+
+        maven {
+            url = uri("../../../prebuilts/fullsdk-darwin/extras/android/m2repository")
+        }
+
+        maven {
+            url = uri("../../../prebuilts/fullsdk-linux/extras/android/m2repository")
+        }
+
         google()
+        mavenCentral()
     }
 }
 
@@ -147,41 +170,55 @@ dependencies {
     implementation "androidx.dynamicanimation:dynamicanimation:${ANDROID_X_VERSION}"
     implementation "androidx.recyclerview:recyclerview:${ANDROID_X_VERSION}"
     implementation "androidx.preference:preference:${ANDROID_X_VERSION}"
+
     implementation project(':IconLoader')
+
     withQuickstepImplementation project(':SharedLibWrapper')
-    implementation fileTree(dir: "${FRAMEWORK_PREBUILTS_DIR}/libs", include: 'launcher_protos.jar')
 
-    // Recents lib dependency
-    withQuickstepImplementation fileTree(dir: "${FRAMEWORK_PREBUILTS_DIR}/quickstep/libs", include: 'sysui_shared.jar')
+    implementation fileTree(
+        dir: "${FRAMEWORK_PREBUILTS_DIR}/libs",
+        include: ['launcher_protos.jar']
+    )
 
-    // Required for AOSP to compile. This is already included in the sysui_shared.jar
-    withoutQuickstepImplementation fileTree(dir: "${FRAMEWORK_PREBUILTS_DIR}/libs", include: 'plugin_core.jar')
+    withQuickstepImplementation fileTree(
+        dir: "${FRAMEWORK_PREBUILTS_DIR}/quickstep/libs",
+        include: ['sysui_shared.jar']
+    )
 
-    testImplementation 'junit:junit:4.12'
-    androidTestImplementation "org.mockito:mockito-core:1.9.5"
+    withoutQuickstepImplementation fileTree(
+        dir: "${FRAMEWORK_PREBUILTS_DIR}/libs",
+        include: ['plugin_core.jar']
+    )
+
+    testImplementation 'junit:junit:4.13.2'
+
+    androidTestImplementation "org.mockito:mockito-core:5.12.0"
+
     androidTestImplementation 'com.google.dexmaker:dexmaker:1.2'
     androidTestImplementation 'com.google.dexmaker:dexmaker-mockito:1.2'
-    androidTestImplementation 'com.android.support.test:runner:1.0.0'
-    androidTestImplementation 'com.android.support.test:rules:1.0.0'
-    androidTestImplementation 'com.android.support.test.uiautomator:uiautomator-v18:2.1.2'
+
+    androidTestImplementation "androidx.test:runner:1.6.2"
+    androidTestImplementation "androidx.test:rules:1.6.1"
+    androidTestImplementation "androidx.test.uiautomator:uiautomator:2.3.0"
+
     androidTestImplementation "androidx.annotation:annotation:${ANDROID_X_VERSION}"
 }
 
 protobuf {
-    // Configure the protoc executable
     protoc {
-        artifact = 'com.google.protobuf:protoc:3.0.0'
+        artifact = "com.google.protobuf:protoc:3.25.5"
+    }
 
-        generateProtoTasks {
-            all().each { task ->
-                task.builtins {
-                    remove java
-                    javanano {
-                        option "java_package=launcher_log_extension.proto|com.android.launcher3.userevent.nano"
-                        option "java_package=launcher_log.proto|com.android.launcher3.userevent.nano"
-                        option "java_package=launcher_dump.proto|com.android.launcher3.model.nano"
-                        option "enum_style=java"
-                    }
+    generateProtoTasks {
+        all().each { task ->
+            task.builtins {
+                remove java
+
+                javanano {
+                    option "java_package=launcher_log_extension.proto|com.android.launcher3.userevent.nano"
+                    option "java_package=launcher_log.proto|com.android.launcher3.userevent.nano"
+                    option "java_package=launcher_dump.proto|com.android.launcher3.model.nano"
+                    option "enum_style=java"
                 }
             }
         }
